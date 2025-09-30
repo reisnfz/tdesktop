@@ -132,6 +132,19 @@ constexpr auto kSystemAlertDuration = crl::time(0);
 
 } // namespace
 
+const char kOptionCustomNotification[] = "custom-notification";
+
+base::options::toggle OptionCustomNotification({
+	.id = kOptionCustomNotification,
+	.name = "Force non-native notifications availability",
+	.description = "Allow to disable native notifications"
+		" even if custom notifications are broken on this platform",
+	.scope = [] {
+		return Platform::Notifications::Enforced();
+	},
+	.restartRequired = true,
+});
+
 const char kOptionGNotification[] = "gnotification";
 
 base::options::toggle OptionGNotification({
@@ -201,7 +214,7 @@ void System::setManager(Fn<std::unique_ptr<Manager>()> create) {
 	});
 
 	if ((Core::App().settings().nativeNotifications()
-				|| Platform::Notifications::Enforced())
+				|| nativeEnforced())
 			&& Platform::Notifications::Supported()) {
 		if (_manager->type() == ManagerType::Native) {
 			return;
@@ -213,7 +226,7 @@ void System::setManager(Fn<std::unique_ptr<Manager>()> create) {
 		}
 	}
 
-	if (Platform::Notifications::Enforced()) {
+	if (nativeEnforced()) {
 		if (_manager->type() != ManagerType::Dummy) {
 			_manager = std::make_unique<DummyManager>(this);
 		}
@@ -229,6 +242,10 @@ Manager &System::manager() const {
 
 rpl::producer<> System::managerChanged() const {
 	return _managerChanged.events();
+}
+
+bool System::nativeEnforced() const {
+	return !OptionCustomNotification.value() && Platform::Notifications::Enforced();
 }
 
 Main::Session *System::findSession(uint64 sessionId) const {
